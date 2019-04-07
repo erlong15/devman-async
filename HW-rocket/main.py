@@ -2,9 +2,10 @@ import time
 import curses
 import asyncio
 import random
-from curses_tools import draw_frame, read_controls
+from curses_tools import draw_frame, read_controls, get_frame_size
 
 MAX_STAR_COUNT = 200
+MAX_STAR_START_DELAY = 20
 
 
 async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0):
@@ -43,9 +44,7 @@ async def sleep_loop(ticks):
 
 
 async def animate_spaceship(canvas, maxy, maxx, frame1, frame2):
-    frame_lines = frame1.split('\n')
-    frame1_high = len(frame_lines)
-    frame1_width = len(frame_lines[0])
+    frame1_high, frame1_width = get_frame_size(frame1)
     rocket_row = maxy - frame1_high - 1
     rocket_col = (maxx // 2) - (frame1_width // 2)
 
@@ -53,13 +52,12 @@ async def animate_spaceship(canvas, maxy, maxx, frame1, frame2):
         rows_direction, columns_direction, space_pressed = read_controls(canvas)
         rocket_row += rows_direction
         rocket_col += columns_direction
-        if rocket_row < 2 or rocket_col < 2 \
-            or rocket_row > (maxy - frame1_high - 1) \
-            or rocket_col > (maxx - frame1_width - 3):
-                rocket_row -= rows_direction
-                rocket_col -= columns_direction
-
-        await asyncio.sleep(0)
+        border_row = (maxy - frame1_high)
+        border_col = (maxx - frame1_width)
+        if rocket_row not in range(1, border_row):
+            rocket_row -= rows_direction
+        if rocket_col  not in range(1, border_col):
+            rocket_col -= columns_direction
         draw_frame(canvas, rocket_row, rocket_col, frame1)
         await asyncio.sleep(0)
         draw_frame(canvas, rocket_row, rocket_col, frame1, True)
@@ -68,11 +66,8 @@ async def animate_spaceship(canvas, maxy, maxx, frame1, frame2):
         draw_frame(canvas, rocket_row, rocket_col, frame2, True)
 
 
-
-
-
-async def blink(canvas, row, column, symbol='*'):
-    await sleep_loop(random.randint(0, 20))
+async def blink(canvas, row, column, offset_ticks, symbol='*'):
+    await sleep_loop(offset_ticks)
     while True:
         canvas.addstr(row, column, symbol, curses.A_DIM)
         await sleep_loop(20)
@@ -87,8 +82,6 @@ async def blink(canvas, row, column, symbol='*'):
         await sleep_loop(3)
 
 
-# coroutine = curses.wrapper(blink, 5, 20)
-
 def draw(canvas, frame1, frame2):
     TIC_TIMEOUT = 0.1
     canvas.border()
@@ -102,14 +95,15 @@ def draw(canvas, frame1, frame2):
         symbol = random.choice('+*.:')
         row = random.randint(1, maxy - 2)
         column = random.randint(1, maxx - 2)
-        coroutines.append(blink(canvas, row, column, symbol))
+        offset_ticks = random.randint(0, MAX_STAR_START_DELAY)
+        coroutines.append(blink(canvas, row, column, offset_ticks, symbol))
     curses.curs_set(False)
     while True:
         for coroutine in coroutines:
             try:
                 coroutine.send(None)
             except StopIteration:
-                del coroutines[0]
+                coroutines.remove(coroutine)
             canvas.refresh()
         time.sleep(TIC_TIMEOUT)
 
