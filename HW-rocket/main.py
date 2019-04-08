@@ -44,19 +44,20 @@ async def sleep_loop(ticks):
 
 
 async def animate_spaceship(canvas, maxy, maxx, frame1, frame2):
-    frame1_high, frame1_width = get_frame_size(frame1)
-    rocket_row = maxy - frame1_high - 1
+    frame1_hight, frame1_width = get_frame_size(frame1)
+    rocket_row = maxy - frame1_hight - 1
     rocket_col = (maxx // 2) - (frame1_width // 2)
+    border_row = (maxy - frame1_hight)
+    border_col = (maxx - frame1_width)
 
     while True:
         rows_direction, columns_direction, space_pressed = read_controls(canvas)
         rocket_row += rows_direction
         rocket_col += columns_direction
-        border_row = (maxy - frame1_high)
-        border_col = (maxx - frame1_width)
-        if rocket_row not in range(1, border_row):
+
+        if not (1 <= rocket_row < border_row):
             rocket_row -= rows_direction
-        if rocket_col  not in range(1, border_col):
+        if not (1 <= rocket_col < border_col):
             rocket_col -= columns_direction
         draw_frame(canvas, rocket_row, rocket_col, frame1)
         await asyncio.sleep(0)
@@ -86,7 +87,7 @@ def draw(canvas, frame1, frame2):
     TIC_TIMEOUT = 0.1
     canvas.border()
     canvas.refresh()
-    (maxy, maxx) = canvas.getmaxyx()
+    maxy, maxx = canvas.getmaxyx()
     canvas.nodelay(True)
 
     coroutines = [fire(canvas, maxy // 2, maxx // 2),
