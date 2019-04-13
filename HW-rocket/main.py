@@ -3,10 +3,15 @@ import curses
 import asyncio
 import random
 from curses_tools import draw_frame, read_controls, get_frame_size
+from space_garbage import fly_garbage
 
 MAX_STAR_COUNT = 200
 MAX_STAR_START_DELAY = 20
 
+FRAME_DIR = './animation'
+TIC_TIMEOUT = 0.1
+
+coroutines = []
 
 async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0):
     """Display animation of gun shot. Direction and speed can be specified."""
@@ -83,15 +88,27 @@ async def blink(canvas, row, column, offset_ticks, symbol='*'):
         await sleep_loop(3)
 
 
-def draw(canvas, frame1, frame2):
-    TIC_TIMEOUT = 0.1
+async def fill_orbit_with_garbage(canvas, garbage, maxx):
+    global coroutines
+    while True:
+        frame = garbage[random.randint(0, len(garbage)-1)]
+        col = random.randint(1, maxx - frame[2])
+        if len(coroutines) < (MAX_STAR_COUNT + 3 + 10):
+            coroutines.append(fly_garbage(canvas, col, frame[0]))
+        await sleep_loop(random.randint(0, 30))
+
+
+def draw(canvas, frame1, frame2, garbage):
+    global coroutines
     canvas.border()
     canvas.refresh()
     maxy, maxx = canvas.getmaxyx()
     canvas.nodelay(True)
 
     coroutines = [fire(canvas, maxy // 2, maxx // 2),
-                  animate_spaceship(canvas, maxy, maxx, frame1, frame2)]
+                  animate_spaceship(canvas, maxy, maxx, frame1, frame2),
+                  fill_orbit_with_garbage(canvas, garbage, maxx)]
+
     for i in range(MAX_STAR_COUNT):
         symbol = random.choice('+*.:')
         row = random.randint(1, maxy - 2)
@@ -110,18 +127,28 @@ def draw(canvas, frame1, frame2):
 
 
 def read_frame(fname):
-    with open(fname) as hdlr:
+    with open(f'{FRAME_DIR}/{fname}') as hdlr:
         return hdlr.read()
 
 
 def read_frames():
-    frame1 = read_frame('./rocket_frame_1.txt')
-    frame2 = read_frame('./rocket_frame_2.txt')
+    frame1 = read_frame('rocket_frame_1.txt')
+    frame2 = read_frame('rocket_frame_2.txt')
     return frame1, frame2
+
+def read_garbage_frames():
+    garbage_files = ['duck.txt', 'hubble.txt', 'lamp.txt', 'trash_large.txt', 'trash_small.txt', 'trash_xl.txt']
+    garbage_frames = []
+    for file in garbage_files:
+        frame = read_frame(file)
+        frame_hight, frame_width = get_frame_size(frame)
+        garbage_frames.append([frame, frame_hight, frame_width])
+    return garbage_frames
 
 
 if __name__ == '__main__':
     curses.update_lines_cols()
     frame1, frame2 = read_frames()
-    curses.wrapper(draw, frame1, frame2)
+    garbage = read_garbage_frames()
+    curses.wrapper(draw, frame1, frame2, garbage)
 
